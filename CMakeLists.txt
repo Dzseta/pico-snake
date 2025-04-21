@@ -28,38 +28,38 @@ set(PICO_BOARD pico_w CACHE STRING "Board type")
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
-project(project_template C CXX ASM)
+project(pico-snake C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(project_template project_template.c )
+add_executable(pico-snake pico-snake.c )
 
-pico_set_program_name(project_template "project_template")
-pico_set_program_version(project_template "0.1")
+pico_set_program_name(pico-snake "pico-snake")
+pico_set_program_version(pico-snake "0.1")
 
 # Modify the below lines to enable/disable output over UART/USB
-pico_enable_stdio_uart(project_template 0)
-pico_enable_stdio_usb(project_template 0)
+pico_enable_stdio_uart(pico-snake 0)
+pico_enable_stdio_usb(pico-snake 0)
 
 # Add the standard library to the build
-target_link_libraries(project_template
+target_link_libraries(pico-snake
         pico_stdlib)
 
 # Add the standard include files to the build
-target_include_directories(project_template PRIVATE
+target_include_directories(pico-snake PRIVATE
   ${CMAKE_CURRENT_LIST_DIR}
 )
 
-pico_add_extra_outputs(project_template)
+pico_add_extra_outputs(pico-snake)
 
 # Add HAGL
 add_subdirectory(external/hagl)
 add_subdirectory(external/hagl_hal)
 # Add any user requested libraries
-target_link_libraries(project_template hagl hagl_hal)
+target_link_libraries(pico-snake hagl hagl_hal)
 
 # Double buffering
 target_compile_definitions(picoro PRIVATE
