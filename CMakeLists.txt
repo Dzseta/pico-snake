@@ -62,12 +62,12 @@ add_subdirectory(external/hagl_hal)
 target_link_libraries(pico-snake hagl hagl_hal)
 
 # Double buffering
-target_compile_definitions(picoro PRIVATE
+target_compile_definitions(pico-snake PRIVATE
   HAGL_HAL_USE_DOUBLE_BUFFER
 )
 
 # Waveshare Pico-LCD-1.3 (240x240 ST7789VW) configuration
-target_compile_definitions(picoro PRIVATE
+target_compile_definitions(pico-snake PRIVATE
     MIPI_DISPLAY_PIN_CS=9
     MIPI_DISPLAY_PIN_DC=8
     MIPI_DISPLAY_PIN_RST=12
