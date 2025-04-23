@@ -23,48 +23,45 @@
 #define LEFT 3
 
 // ############################# QUEUE ###############################
-typedef struct {
-  u_int8_t x;
-  u_int8_t y;
-} coordinate;
 // Defining the Queue structure
 typedef struct  {
-     coordinate items[400];
+     uint8_t x[400];
+     uint8_t y[400];
+     int size;
      int front;
      int rear;
 } Queue;
 // Function to initialize the queue
-void initializeQueue(Queue* q)
-{
-    q->front = -1;
+void initializeQueue(Queue* q) {
+    q->front = 0;
     q->rear = 0;
+    q->size = 0;
 }
 // Function to add an element to the queue
-void enqueue(Queue* q, coordinate value)
-{
-    if (isFull(q)) {
-        printf("Queue is full\n");
-        return;
-    }
-    q->items[q->rear] = value;
-    q->rear++;
+void enqueue(Queue* q, uint8_t x, uint8_t y) {
+    q->rear = (q->front + q->size) % 400;
+    q->x[q->rear] = x;
+    q->y[q->rear] = y;
+    q->size++;
 }
 // Function to remove an element from the queue
 void dequeue(Queue* q)
 {
-    q->front++;
+    q->front = (q->front + 1) % 400;
+    q->size--;
 }
 // ########################## VARIABLES ###############################
 
 // fps counter
 volatile bool fps_flag = false;
 static fps_instance_t fps;
-static const uint64_t US_PER_FRAME_2_FPS = 1000000 / 2;
+static const uint64_t US_PER_FRAME_60_FPS = 1000000 / 60;
+static const uint64_t US_PER_FRAME_1_FPS = 1000000;
 
 // message
 wchar_t message[32];
 // text
-wchar_t text[10];
+wchar_t text[20];
 
 // display
 static hagl_backend_t *display;
@@ -96,15 +93,11 @@ void static inline show_fps()
 }
 
 // place the fruit
-coordinate static place_fruit(){
-    int16_t fruit_x;
-    int16_t fruit_y;
+void static place_fruit(uint8_t* x, uint8_t* y){    
     do {
-        fruit_x = rand() % 20;
-        fruit_y = rand() % 20;
-    } while (board[fruit_x][fruit_y] == 1);
-    coordinate coords(fruit_x, fruit_y);
-    return coords();
+        *x = rand() % 20;
+        *y = rand() % 20;
+    } while (board[*x][*y] == 1);
 }
           
 int main() {
@@ -138,51 +131,119 @@ int main() {
         busy_wait_until(start + 1000000);
         
         // initialise variables
-        key_a = key_b = joy_up = joy_down = joy_left = joy_right = false;
         end = false;
         srand(start);
         Queue snake;
         initializeQueue(&snake);
-        coordinate helper;
-        helper.x = 5;
-        helper.y = 10;
-        enqueue(&snake, helper);
-        helper.y = 11;
-        enqueue(&snake, helper);
-        helper.y = 12;
-        enqueue(&snake, helper);
+        uint8_t current_x = 4;
+        uint8_t current_y = 10;
+        enqueue(&snake, current_x, current_y);
+        current_x = 5;
+        enqueue(&snake, current_x, current_y);
+        current_x = 6;
+        enqueue(&snake, current_x, current_y);
         direction = RIGHT;
-        coordinate fruit = place_fruit();
+        uint8_t fruit_x = 0;
+        uint8_t fruit_y = 0;
+        place_fruit(&fruit_x, &fruit_y);
         for(int i=0; i<20; i++) {
             for(int j=0; j<20; j++) {
                 board[i][j] = 0;
             }
         }
+        board[4][10] = 1;
         board[5][10] = 1;
-        board[5][11] = 1;
-        board[5][12] = 1;
-        board[fruit.x][fruit.y] = 2;
+        board[6][10] = 1;
+        board[fruit_x][fruit_y] = 2;
+        uint8_t last_x = 0;
+        uint8_t last_y = 0;
 
         // draw the field
         for(int i=0; i<20; i++) {
             for(int j=0; j<20; j++) {
-                if(board[i][j] == 0) hagl_fill_rectangle_xywh(display, i*20, j*20, 20, 20, color_green);
-                if(board[i][j] == 1) hagl_fill_rectangle_xywh(display, i*20, j*20, 20, 20, color_lightblue);
-                if(board[i][j] == 2) hagl_fill_rectangle_xywh(display, i*20, j*20, 20, 20, color_red);
-                hagl_draw_rectangle_xywh(display, i*20, j*20, 20, 20, color_black);
+                if(board[i][j] == 0) hagl_fill_rectangle_xywh(display, i*12, j*12, 12, 12, color_green);
+                if(board[i][j] == 1) hagl_fill_rectangle_xywh(display, i*12, j*12, 12, 12, color_lightblue);
+                if(board[i][j] == 2) hagl_fill_rectangle_xywh(display, i*12, j*12, 12, 12, color_red);
             }
         }
 
+        // timer
+        uint16_t snake_timer = 0;
+
         while (true) {
             // Game logic
-            /*
-                TODO
-            */
+            // start frame timer
+            uint64_t start = time_us_64();
+            snake_timer++;
+            // read input
+            if(end) {
+                if(!gpio_get(KEY_Y)) {
+                    if(end) break;
+                }
+            } else {
+                if(!gpio_get(JOY_UP)) {
+                    if(direction != DOWN) direction = UP;
+                } else if(!gpio_get(JOY_DOWN)) {
+                    if(direction != UP) direction = DOWN;
+                } else if(!gpio_get(JOY_LEFT)) {
+                    if(direction != RIGHT) direction = LEFT;
+                } else if(!gpio_get(JOY_RIGHT)) {
+                    if(direction != LEFT) direction = RIGHT;
+                }
+            }
+
+            // move
+            if(snake_timer >= 20 && !end) {
+                // get new direction
+                if(direction == LEFT && current_x > 0) {
+                    current_x--;
+                } else if(direction == UP && current_y > 0) {
+                    current_y--;
+                } else if(direction == RIGHT && current_x < 19) {
+                    current_x++;
+                } else if(direction == DOWN && current_y < 19) {
+                    current_y++;
+                } else {
+                    end = true;
+                }
+                // check for fruit
+                if(board[current_x][current_y] == 2) {
+                    place_fruit(&fruit_x, &fruit_y);
+                    board[fruit_x][fruit_y] = 2;
+                } else if(board[current_x][current_y] == 1) {
+                    end = true;
+                } else {
+                    last_x = snake.x[snake.front];
+                    last_y = snake.y[snake.front];
+                    dequeue(&snake);
+                }
+                enqueue(&snake, current_x, current_y);
+                // check if board full
+                if(snake.size == 400) {
+                    end = true;
+                }
+                board[last_x][last_y] = 0;
+                board[current_x][current_y] = 1;
+                // draw the field
+                for(int i=0; i<20; i++) {
+                    for(int j=0; j<20; j++) {
+                        if(board[i][j] == 0) hagl_fill_rectangle_xywh(display, i*12, j*12, 12, 12, color_green);
+                        if(board[i][j] == 1) hagl_fill_rectangle_xywh(display, i*12, j*12, 12, 12, color_lightblue);
+                        if(board[i][j] == 2) hagl_fill_rectangle_xywh(display, i*12, j*12, 12, 12, color_red);
+                    }
+                }
+                if(end) {
+                    swprintf(text, sizeof(text), L"GAME OVER");
+                    hagl_put_text(display, text, 93, 0, color_red, font6x9);
+                }
+                snake_timer = 0;
+            }
         
             // Update the displayed fps if requested
+            /*
             if (fps_flag) {
                 show_fps();
-            }
+            }*/
 
             // Flush back buffer contents to display
             hagl_flush(display);
@@ -191,7 +252,7 @@ int main() {
             fps_update(&fps);
 
             // Cap to 60 fps
-            busy_wait_until(start + US_PER_FRAME_2_FPS);
+            busy_wait_until(start + US_PER_FRAME_60_FPS);
         }
 
         start = time_us_64();
