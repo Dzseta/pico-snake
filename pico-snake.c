@@ -13,9 +13,10 @@
 
 // Buttons
 #include "buttons.h"
-
 // Colors
 #include "colors.h"
+// Bitmaps
+#include "bitmap_icons.h"
 
 #define UP 0
 #define RIGHT 1
@@ -69,6 +70,9 @@ static hagl_backend_t *display;
 // board
 int board[20][20];
 
+// bitmap
+hagl_bitmap_t icon_bitmap;
+
 bool show_timer_callback(struct repeating_timer *t)
 {
     fps_flag = true;
@@ -116,9 +120,13 @@ int main() {
     // Init buttons
     buttons_init();
 
+    // Init bitmap
+    icon_bitmap.buffer = (uint8_t *) malloc(ICONS_WIDTH * ICONS_HEIGHT * sizeof(hagl_color_t));
+
     // Variables
     // direction
     u_int8_t direction; // up-right-down-left (0-3)
+    u_int8_t new_direction;
     // buttons
     bool key_a, key_b, joy_up, joy_down, joy_left, joy_right; 
     // ending
@@ -143,6 +151,7 @@ int main() {
         current_x = 6;
         enqueue(&snake, current_x, current_y);
         direction = RIGHT;
+        new_direction = RIGHT;
         uint8_t fruit_x = 0;
         uint8_t fruit_y = 0;
         place_fruit(&fruit_x, &fruit_y);
@@ -162,11 +171,30 @@ int main() {
         for(int i=0; i<20; i++) {
             for(int j=0; j<20; j++) {
                 if(board[i][j] == 0) hagl_fill_rectangle_xywh(display, i*12, j*12, 12, 12, color_green);
-                if(board[i][j] == 1) hagl_fill_rectangle_xywh(display, i*12, j*12, 12, 12, color_lightblue);
-                if(board[i][j] == 2) hagl_fill_rectangle_xywh(display, i*12, j*12, 12, 12, color_red);
+                if(board[i][j] == 1) {
+                    hagl_draw_rectangle_xywh(display, i*12, j*12, 20, 20, color_black);
+                    hagl_fill_rectangle_xywh(display, i*12, j*12, 12, 12, color_lightblue);
+                }
+                if(board[i][j] == 2) {
+                    hagl_bitmap_init(&icon_bitmap, ICONS_WIDTH, ICONS_HEIGHT, sizeof(hagl_color_t), &apple_icon);
+                    hagl_blit(display, i*12, j*12, &icon_bitmap);
+                }
             }
         }
-
+        if(direction == LEFT) {
+            hagl_bitmap_init(&icon_bitmap, ICONS_WIDTH, ICONS_HEIGHT, sizeof(hagl_color_t), &head_icon_l);
+            hagl_blit(display, snake.x[snake.rear]*12, snake.y[snake.rear]*12, &icon_bitmap);
+        } else if(direction == UP) {
+            hagl_bitmap_init(&icon_bitmap, ICONS_WIDTH, ICONS_HEIGHT, sizeof(hagl_color_t), &head_icon_u);
+            hagl_blit(display, snake.x[snake.rear]*12, snake.y[snake.rear]*12, &icon_bitmap);
+        } else if(direction == RIGHT) {
+            hagl_bitmap_init(&icon_bitmap, ICONS_WIDTH, ICONS_HEIGHT, sizeof(hagl_color_t), &head_icon_r);
+            hagl_blit(display, snake.x[snake.rear]*12, snake.y[snake.rear]*12, &icon_bitmap);
+        } else {
+            hagl_bitmap_init(&icon_bitmap, ICONS_WIDTH, ICONS_HEIGHT, sizeof(hagl_color_t), &head_icon_d);
+            hagl_blit(display, snake.x[snake.rear]*12, snake.y[snake.rear]*12, &icon_bitmap);
+        }
+        
         // timer
         uint16_t snake_timer = 0;
 
@@ -182,18 +210,19 @@ int main() {
                 }
             } else {
                 if(!gpio_get(JOY_UP)) {
-                    if(direction != DOWN) direction = UP;
+                    if(direction != DOWN) new_direction = UP;
                 } else if(!gpio_get(JOY_DOWN)) {
-                    if(direction != UP) direction = DOWN;
+                    if(direction != UP) new_direction = DOWN;
                 } else if(!gpio_get(JOY_LEFT)) {
-                    if(direction != RIGHT) direction = LEFT;
+                    if(direction != RIGHT) new_direction = LEFT;
                 } else if(!gpio_get(JOY_RIGHT)) {
-                    if(direction != LEFT) direction = RIGHT;
+                    if(direction != LEFT) new_direction = RIGHT;
                 }
             }
 
             // move
             if(snake_timer >= 20 && !end) {
+                direction = new_direction;
                 // get new direction
                 if(direction == LEFT && current_x > 0) {
                     current_x--;
@@ -210,31 +239,54 @@ int main() {
                 if(board[current_x][current_y] == 2) {
                     place_fruit(&fruit_x, &fruit_y);
                     board[fruit_x][fruit_y] = 2;
-                } else if(board[current_x][current_y] == 1) {
-                    end = true;
                 } else {
                     last_x = snake.x[snake.front];
                     last_y = snake.y[snake.front];
                     dequeue(&snake);
+                    board[last_x][last_y] = 0;
+                }
+                // check for tail
+                if(board[current_x][current_y] == 1) {
+                    end = true;
                 }
                 enqueue(&snake, current_x, current_y);
+                board[current_x][current_y] = 1;
                 // check if board full
                 if(snake.size == 400) {
                     end = true;
                 }
-                board[last_x][last_y] = 0;
-                board[current_x][current_y] = 1;
                 // draw the field
                 for(int i=0; i<20; i++) {
                     for(int j=0; j<20; j++) {
                         if(board[i][j] == 0) hagl_fill_rectangle_xywh(display, i*12, j*12, 12, 12, color_green);
-                        if(board[i][j] == 1) hagl_fill_rectangle_xywh(display, i*12, j*12, 12, 12, color_lightblue);
-                        if(board[i][j] == 2) hagl_fill_rectangle_xywh(display, i*12, j*12, 12, 12, color_red);
+                        if(board[i][j] == 1) {
+                            hagl_fill_rectangle_xywh(display, i*12, j*12, 12, 12, color_lightblue);
+                            hagl_draw_rectangle_xywh(display, i*12, j*12, 12, 12, color_black);
+                        }
+                        if(board[i][j] == 2) {
+                            hagl_bitmap_init(&icon_bitmap, ICONS_WIDTH, ICONS_HEIGHT, sizeof(hagl_color_t), &apple_icon);
+                            hagl_blit(display, i*12, j*12, &icon_bitmap);
+                        }
                     }
+                }
+                if(direction == LEFT) {
+                    hagl_bitmap_init(&icon_bitmap, ICONS_WIDTH, ICONS_HEIGHT, sizeof(hagl_color_t), &head_icon_l);
+                    hagl_blit(display, snake.x[snake.rear]*12, snake.y[snake.rear]*12, &icon_bitmap);
+                } else if(direction == UP) {
+                    hagl_bitmap_init(&icon_bitmap, ICONS_WIDTH, ICONS_HEIGHT, sizeof(hagl_color_t), &head_icon_u);
+                    hagl_blit(display, snake.x[snake.rear]*12, snake.y[snake.rear]*12, &icon_bitmap);
+                } else if(direction == RIGHT) {
+                    hagl_bitmap_init(&icon_bitmap, ICONS_WIDTH, ICONS_HEIGHT, sizeof(hagl_color_t), &head_icon_r);
+                    hagl_blit(display, snake.x[snake.rear]*12, snake.y[snake.rear]*12, &icon_bitmap);
+                } else {
+                    hagl_bitmap_init(&icon_bitmap, ICONS_WIDTH, ICONS_HEIGHT, sizeof(hagl_color_t), &head_icon_d);
+                    hagl_blit(display, snake.x[snake.rear]*12, snake.y[snake.rear]*12, &icon_bitmap);
                 }
                 if(end) {
                     swprintf(text, sizeof(text), L"GAME OVER");
                     hagl_put_text(display, text, 93, 0, color_red, font6x9);
+                    swprintf(text, sizeof(text), L"SCORE: %u", snake.size-3);
+                    hagl_put_text(display, text, 93, 9, color_white, font6x9);
                 }
                 snake_timer = 0;
             }
