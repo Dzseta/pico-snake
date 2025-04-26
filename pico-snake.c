@@ -127,8 +127,6 @@ int main() {
     // direction
     u_int8_t direction; // up-right-down-left (0-3)
     u_int8_t new_direction;
-    // buttons
-    bool key_a, key_b, joy_up, joy_down, joy_left, joy_right; 
     // ending
     bool end;
 
